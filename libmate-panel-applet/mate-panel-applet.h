@@ -31,9 +31,10 @@
 #include <cairo.h>
 #include <cairo-gobject.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+G_BEGIN_DECLS
+
+#define PANEL_TYPE_APPLET mate_panel_applet_get_type ()
+G_DECLARE_DERIVABLE_TYPE (MatePanelApplet, mate_panel_applet, MATE_PANEL, APPLET, GtkEventBox)
 
 typedef enum {
 	MATE_PANEL_APPLET_ORIENT_UP,
@@ -43,13 +44,6 @@ typedef enum {
 #define MATE_PANEL_APPLET_ORIENT_FIRST MATE_PANEL_APPLET_ORIENT_UP
 #define MATE_PANEL_APPLET_ORIENT_LAST  MATE_PANEL_APPLET_ORIENT_RIGHT
 } MatePanelAppletOrient;
-
-#define PANEL_TYPE_APPLET              (mate_panel_applet_get_type ())
-#define MATE_PANEL_APPLET(o)           (G_TYPE_CHECK_INSTANCE_CAST ((o), PANEL_TYPE_APPLET, MatePanelApplet))
-#define MATE_PANEL_APPLET_CLASS(k)     (G_TYPE_CHECK_CLASS_CAST((k), PANEL_TYPE_APPLET, MatePanelAppletClass))
-#define PANEL_IS_APPLET(o)             (G_TYPE_CHECK_INSTANCE_TYPE ((o), PANEL_TYPE_APPLET))
-#define PANEL_IS_APPLET_CLASS(k)       (G_TYPE_CHECK_CLASS_TYPE ((k), PANEL_TYPE_APPLET))
-#define MATE_PANEL_APPLET_GET_CLASS(o) (G_TYPE_INSTANCE_GET_CLASS ((o), PANEL_TYPE_APPLET, MatePanelAppletClass))
 
 typedef enum {
 	PANEL_NO_BACKGROUND,
@@ -65,20 +59,10 @@ typedef enum {
 #define MATE_PANEL_APPLET_FLAGS_ALL (MATE_PANEL_APPLET_EXPAND_MAJOR|MATE_PANEL_APPLET_EXPAND_MINOR|MATE_PANEL_APPLET_HAS_HANDLE)
 } MatePanelAppletFlags;
 
-typedef struct _MatePanelApplet        MatePanelApplet;
-typedef struct _MatePanelAppletClass   MatePanelAppletClass;
-typedef struct _MatePanelAppletPrivate MatePanelAppletPrivate;
-
 typedef gboolean (*MatePanelAppletFactoryCallback) (MatePanelApplet* applet, const gchar *iid, gpointer user_data);
 
-struct _MatePanelApplet {
-	GtkEventBox event_box;
-
-	MatePanelAppletPrivate* priv;
-};
-
 struct _MatePanelAppletClass {
-	GtkEventBoxClass event_box_class;
+	GtkEventBoxClass parent_class;
 
 	void (*change_orient) (MatePanelApplet* applet, MatePanelAppletOrient orient);
 
@@ -89,40 +73,45 @@ struct _MatePanelAppletClass {
 	void (*move_focus_out_of_applet) (MatePanelApplet* frame, GtkDirectionType direction);
 };
 
-GType mate_panel_applet_get_type(void) G_GNUC_CONST;
-
-GtkWidget* mate_panel_applet_new(void);
-
-MatePanelAppletOrient mate_panel_applet_get_orient(MatePanelApplet* applet);
-guint mate_panel_applet_get_size(MatePanelApplet* applet);
-MatePanelAppletBackgroundType mate_panel_applet_get_background (MatePanelApplet *applet, /* return values */ GdkRGBA* color, cairo_pattern_t** pattern);
-void mate_panel_applet_set_background_widget(MatePanelApplet* applet, GtkWidget* widget);
-
-gchar* mate_panel_applet_get_preferences_path(MatePanelApplet* applet);
-
-MatePanelAppletFlags mate_panel_applet_get_flags(MatePanelApplet* applet);
-void mate_panel_applet_set_flags(MatePanelApplet* applet, MatePanelAppletFlags flags);
-
-void mate_panel_applet_set_size_hints(MatePanelApplet* applet, const int* size_hints, int n_elements, int base_size);
-
-gboolean mate_panel_applet_get_locked_down(MatePanelApplet* applet);
+GtkWidget*                    mate_panel_applet_new                    (void);
+MatePanelAppletOrient         mate_panel_applet_get_orient             (MatePanelApplet       *applet);
+guint                         mate_panel_applet_get_size               (MatePanelApplet       *applet);
+MatePanelAppletBackgroundType mate_panel_applet_get_background         (MatePanelApplet       *applet,
+                                                                        GdkRGBA               *color,
+                                                                        cairo_pattern_t      **pattern);
+void                          mate_panel_applet_set_background_widget  (MatePanelApplet       *applet,
+                                                                        GtkWidget             *widget);
+gchar*                        mate_panel_applet_get_preferences_path   (MatePanelApplet       *applet);
+MatePanelAppletFlags          mate_panel_applet_get_flags              (MatePanelApplet       *applet);
+void                          mate_panel_applet_set_flags              (MatePanelApplet       *applet,
+                                                                        MatePanelAppletFlags   flags);
+void                          mate_panel_applet_set_size_hints         (MatePanelApplet       *applet,
+                                                                        const int             *size_hints,
+                                                                        int                    n_elements,
+                                                                        int                    base_size);
+gboolean                      mate_panel_applet_get_locked_down        (MatePanelApplet       *applet);
 
 /* Does nothing when not on X11 */
-void mate_panel_applet_request_focus(MatePanelApplet* applet, guint32 timestamp);
-
-void mate_panel_applet_setup_menu(MatePanelApplet* applet, const gchar* xml, GtkActionGroup* action_group);
-void mate_panel_applet_setup_menu_from_file(MatePanelApplet* applet, const gchar* filename, GtkActionGroup* action_group);
-void mate_panel_applet_setup_menu_from_resource (MatePanelApplet    *applet,
-                                                 const gchar        *resource_path,
-                                                 GtkActionGroup     *action_group);
-
-int mate_panel_applet_factory_main(const gchar* factory_id,gboolean  out_process, GType applet_type, MatePanelAppletFactoryCallback callback, gpointer data);
-
-int  mate_panel_applet_factory_setup_in_process (const gchar               *factory_id,
-							  GType                      applet_type,
-							  MatePanelAppletFactoryCallback callback,
-							  gpointer                   data);
-
+void mate_panel_applet_request_focus            (MatePanelApplet                *applet,
+                                                 guint32                         timestamp);
+void mate_panel_applet_setup_menu               (MatePanelApplet                *applet,
+                                                 const gchar                    *xml,
+                                                 GtkActionGroup                 *action_group);
+void mate_panel_applet_setup_menu_from_file     (MatePanelApplet                *applet,
+                                                 const gchar                    *filename,
+                                                 GtkActionGroup                 *action_group);
+void mate_panel_applet_setup_menu_from_resource (MatePanelApplet                *applet,
+                                                 const gchar                    *resource_path,
+                                                 GtkActionGroup                 *action_group);
+int  mate_panel_applet_factory_main             (const gchar                    *factory_id,
+                                                 gboolean                        out_process,
+                                                 GType                           applet_type,
+                                                 MatePanelAppletFactoryCallback  callback,
+                                                 gpointer                        data);
+int  mate_panel_applet_factory_setup_in_process (const gchar                    *factory_id,
+                                                 GType                           applet_type,
+                                                 MatePanelAppletFactoryCallback  callback,
+                                                 gpointer                        data);
 
 /*
  * These macros are getting a bit unwieldy.
@@ -191,8 +180,6 @@ return mate_panel_applet_factory_setup_in_process (factory_id, type,            
                                                callback, data);  \
 }
 
-#ifdef __cplusplus
-}
-#endif
+G_END_DECLS
 
 #endif /* __MATE_PANEL_APPLET_H__ */

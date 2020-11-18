@@ -51,7 +51,7 @@
 #include "mate-panel-applet-marshal.h"
 #include "mate-panel-applet-enums.h"
 
-struct _MatePanelAppletPrivate {
+typedef struct {
 	GtkWidget         *plug;
 	GDBusConnection   *connection;
 
@@ -82,7 +82,7 @@ struct _MatePanelAppletPrivate {
 
 	gboolean           locked;
 	gboolean           locked_down;
-};
+} MatePanelAppletPrivate;
 
 enum {
 	CHANGE_ORIENT,
@@ -158,28 +158,33 @@ G_DEFINE_TYPE_WITH_PRIVATE (MatePanelApplet, mate_panel_applet, GTK_TYPE_EVENT_B
 char *
 mate_panel_applet_get_preferences_path (MatePanelApplet *applet)
 {
-	g_return_val_if_fail (PANEL_IS_APPLET (applet), NULL);
+	MatePanelAppletPrivate *priv;
 
-	if (!applet->priv->prefs_path)
+	g_return_val_if_fail (MATE_PANEL_IS_APPLET (applet), NULL);
+
+	priv = mate_panel_applet_get_instance_private (applet);
+	if (!priv->prefs_path)
 		return NULL;
 
-	return g_strdup (applet->priv->prefs_path);
+	return g_strdup (priv->prefs_path);
 }
 
 static void
 mate_panel_applet_set_preferences_path (MatePanelApplet *applet,
-				  const char  *prefs_path)
+                                        const char      *prefs_path)
 {
-	if (applet->priv->prefs_path == prefs_path)
+	MatePanelAppletPrivate *priv;
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->prefs_path == prefs_path)
 		return;
 
-	if (g_strcmp0 (applet->priv->prefs_path, prefs_path) == 0)
+	if (g_strcmp0 (priv->prefs_path, prefs_path) == 0)
 		return;
 
-	if (prefs_path) {
-		applet->priv->prefs_path = g_strdup (prefs_path);
-
-	}
+	if (prefs_path)
+		priv->prefs_path = g_strdup (prefs_path);
 
 	g_object_notify (G_OBJECT (applet), "prefs-path");
 }
@@ -187,25 +192,33 @@ mate_panel_applet_set_preferences_path (MatePanelApplet *applet,
 MatePanelAppletFlags
 mate_panel_applet_get_flags (MatePanelApplet *applet)
 {
-	g_return_val_if_fail (PANEL_IS_APPLET (applet), MATE_PANEL_APPLET_FLAGS_NONE);
+	MatePanelAppletPrivate *priv;
 
-	return applet->priv->flags;
+	g_return_val_if_fail (MATE_PANEL_IS_APPLET (applet), MATE_PANEL_APPLET_FLAGS_NONE);
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	return priv->flags;
 }
 
 void
 mate_panel_applet_set_flags (MatePanelApplet      *applet,
-			MatePanelAppletFlags  flags)
+                             MatePanelAppletFlags  flags)
 {
-	g_return_if_fail (PANEL_IS_APPLET (applet));
+	MatePanelAppletPrivate *priv;
 
-	if (applet->priv->flags == flags)
+	g_return_if_fail (MATE_PANEL_IS_APPLET (applet));
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->flags == flags)
 		return;
 
-	applet->priv->flags = flags;
+	priv->flags = flags;
 
 	g_object_notify (G_OBJECT (applet), "flags");
 
-	if (applet->priv->connection) {
+	if (priv->connection) {
 		GVariantBuilder  builder;
 		GVariantBuilder  invalidated_builder;
 		GError          *error = NULL;
@@ -214,18 +227,18 @@ mate_panel_applet_set_flags (MatePanelApplet      *applet,
 		g_variant_builder_init (&invalidated_builder, G_VARIANT_TYPE ("as"));
 
 		g_variant_builder_add (&builder, "{sv}", "Flags",
-				       g_variant_new_uint32 (applet->priv->flags));
+				       g_variant_new_uint32 (priv->flags));
 
-		g_dbus_connection_emit_signal (applet->priv->connection,
-					       NULL,
-					       applet->priv->object_path,
-					       "org.freedesktop.DBus.Properties",
-					       "PropertiesChanged",
+		g_dbus_connection_emit_signal (priv->connection,
+		                               NULL,
+		                               priv->object_path,
+		                               "org.freedesktop.DBus.Properties",
+		                               "PropertiesChanged",
 					       g_variant_new ("(sa{sv}as)",
-							      MATE_PANEL_APPLET_INTERFACE,
-							      &builder,
-							      &invalidated_builder),
-					       &error);
+		                                              MATE_PANEL_APPLET_INTERFACE,
+		                                              &builder,
+		                                              &invalidated_builder),
+		                               &error);
 		if (error) {
 			g_printerr ("Failed to send signal PropertiesChanged::Flags: %s\n",
 				    error->message);
@@ -238,33 +251,39 @@ mate_panel_applet_set_flags (MatePanelApplet      *applet,
 
 static void
 mate_panel_applet_size_hints_ensure (MatePanelApplet *applet,
-				int          new_size)
+                                     int              new_size)
 {
-	if (applet->priv->size_hints && applet->priv->size_hints_len < new_size) {
-		g_free (applet->priv->size_hints);
-		applet->priv->size_hints = g_new (gint, new_size);
-	} else if (!applet->priv->size_hints) {
-		applet->priv->size_hints = g_new (gint, new_size);
+	MatePanelAppletPrivate *priv;
+
+	priv = mate_panel_applet_get_instance_private (applet);
+	if (priv->size_hints && priv->size_hints_len < new_size) {
+		g_free (priv->size_hints);
+		priv->size_hints = g_new (gint, new_size);
+	} else if (!priv->size_hints) {
+		priv->size_hints = g_new (gint, new_size);
 	}
-	applet->priv->size_hints_len = new_size;
+	priv->size_hints_len = new_size;
 }
 
 static gboolean
 mate_panel_applet_size_hints_changed (MatePanelApplet *applet,
-				 const int   *size_hints,
-				 int          n_elements,
-				 int          base_size)
+                                      const int       *size_hints,
+                                      int              n_elements,
+                                      int              base_size)
 {
+	MatePanelAppletPrivate *priv;
 	gint i;
 
-	if (!applet->priv->size_hints)
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (!priv->size_hints)
 		return TRUE;
 
-	if (applet->priv->size_hints_len != n_elements)
+	if (priv->size_hints_len != n_elements)
 		return TRUE;
 
 	for (i = 0; i < n_elements; i++) {
-		if (size_hints[i] + base_size != applet->priv->size_hints[i])
+		if (size_hints[i] + base_size != priv->size_hints[i])
 			return TRUE;
 	}
 
@@ -280,23 +299,26 @@ mate_panel_applet_size_hints_changed (MatePanelApplet *applet,
  */
 void
 mate_panel_applet_set_size_hints (MatePanelApplet *applet,
-			     const int   *size_hints,
-			     int          n_elements,
-			     int          base_size)
+                                  const int       *size_hints,
+                                  int              n_elements,
+                                  int              base_size)
 {
+	MatePanelAppletPrivate *priv;
 	gint i;
 
 	/* Make sure property has really changed to avoid bus traffic */
 	if (!mate_panel_applet_size_hints_changed (applet, size_hints, n_elements, base_size))
 		return;
 
+	priv = mate_panel_applet_get_instance_private (applet);
+
 	mate_panel_applet_size_hints_ensure (applet, n_elements);
 	for (i = 0; i < n_elements; i++)
-		applet->priv->size_hints[i] = size_hints[i] + base_size;
+		priv->size_hints[i] = size_hints[i] + base_size;
 
 	g_object_notify (G_OBJECT (applet), "size-hints");
 
-	if (applet->priv->connection) {
+	if (priv->connection) {
 		GVariantBuilder  builder;
 		GVariantBuilder  invalidated_builder;
 		GVariant       **children;
@@ -305,27 +327,27 @@ mate_panel_applet_set_size_hints (MatePanelApplet *applet,
 		g_variant_builder_init (&builder, G_VARIANT_TYPE_ARRAY);
 		g_variant_builder_init (&invalidated_builder, G_VARIANT_TYPE ("as"));
 
-		children = g_new (GVariant *, applet->priv->size_hints_len);
+		children = g_new (GVariant *, priv->size_hints_len);
 		for (i = 0; i < n_elements; i++)
-			children[i] = g_variant_new_int32 (applet->priv->size_hints[i]);
+			children[i] = g_variant_new_int32 (priv->size_hints[i]);
 		g_variant_builder_add (&builder, "{sv}", "SizeHints",
-				       g_variant_new_array (G_VARIANT_TYPE_INT32,
-							    children, applet->priv->size_hints_len));
+		                       g_variant_new_array (G_VARIANT_TYPE_INT32,
+		                       children, priv->size_hints_len));
 		g_free (children);
 
-		g_dbus_connection_emit_signal (applet->priv->connection,
-					       NULL,
-					       applet->priv->object_path,
-					       "org.freedesktop.DBus.Properties",
-					       "PropertiesChanged",
-					       g_variant_new ("(sa{sv}as)",
-							      MATE_PANEL_APPLET_INTERFACE,
-							      &builder,
-							      &invalidated_builder),
-					       &error);
+		g_dbus_connection_emit_signal (priv->connection,
+		                               NULL,
+		                               priv->object_path,
+		                               "org.freedesktop.DBus.Properties",
+		                               "PropertiesChanged",
+		                               g_variant_new ("(sa{sv}as)",
+		                                              MATE_PANEL_APPLET_INTERFACE,
+		                                              &builder,
+		                                              &invalidated_builder),
+		                                              &error);
 		if (error) {
 			g_printerr ("Failed to send signal PropertiesChanged::SizeHints: %s\n",
-				    error->message);
+			            error->message);
 			g_error_free (error);
 		}
 		g_variant_builder_clear (&builder);
@@ -336,22 +358,30 @@ mate_panel_applet_set_size_hints (MatePanelApplet *applet,
 guint
 mate_panel_applet_get_size (MatePanelApplet *applet)
 {
-	g_return_val_if_fail (PANEL_IS_APPLET (applet), 0);
+	MatePanelAppletPrivate *priv;
 
-	return applet->priv->size;
+	g_return_val_if_fail (MATE_PANEL_IS_APPLET (applet), 0);
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	return priv->size;
 }
 
 /* Applets cannot set their size, so API is not public. */
 static void
 mate_panel_applet_set_size (MatePanelApplet *applet,
-		       guint        size)
+                            guint            size)
 {
-	g_return_if_fail (PANEL_IS_APPLET (applet));
+	MatePanelAppletPrivate *priv;
 
-	if (applet->priv->size == size)
+	g_return_if_fail (MATE_PANEL_IS_APPLET (applet));
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->size == size)
 		return;
 
-	applet->priv->size = size;
+	priv->size = size;
 	g_signal_emit (G_OBJECT (applet),
 		       mate_panel_applet_signals [CHANGE_SIZE],
 		       0, size);
@@ -362,68 +392,79 @@ mate_panel_applet_set_size (MatePanelApplet *applet,
 MatePanelAppletOrient
 mate_panel_applet_get_orient (MatePanelApplet *applet)
 {
-	g_return_val_if_fail (PANEL_IS_APPLET (applet), 0);
+	MatePanelAppletPrivate *priv;
 
-	return applet->priv->orient;
+	g_return_val_if_fail (MATE_PANEL_IS_APPLET (applet), 0);
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	return priv->orient;
 }
 
 /* Applets cannot set their orientation, so API is not public. */
 static void
 mate_panel_applet_set_orient (MatePanelApplet      *applet,
-			 MatePanelAppletOrient orient)
+                              MatePanelAppletOrient orient)
 {
-	g_return_if_fail (PANEL_IS_APPLET (applet));
+	MatePanelAppletPrivate *priv;
 
-	if (applet->priv->orient == orient)
+	g_return_if_fail (MATE_PANEL_IS_APPLET (applet));
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->orient == orient)
 		return;
 
-	applet->priv->orient = orient;
+	priv->orient = orient;
 	g_signal_emit (G_OBJECT (applet),
-		       mate_panel_applet_signals [CHANGE_ORIENT],
-		       0, orient);
+	               mate_panel_applet_signals [CHANGE_ORIENT],
+	               0, orient);
 
 	g_object_notify (G_OBJECT (applet), "orient");
 }
 
 static void
 mate_panel_applet_set_locked (MatePanelApplet *applet,
-			 gboolean     locked)
+                              gboolean         locked)
 {
+	MatePanelAppletPrivate *priv;
 	GtkAction *action;
 
-	g_return_if_fail (PANEL_IS_APPLET (applet));
+	g_return_if_fail (MATE_PANEL_IS_APPLET (applet));
 
-	if (applet->priv->locked == locked)
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->locked == locked)
 		return;
 
-	applet->priv->locked = locked;
+	priv->locked = locked;
 
 	action = mate_panel_applet_menu_get_action (applet, "Lock");
 	g_signal_handlers_block_by_func (action,
-					 mate_panel_applet_menu_cmd_lock,
-					 applet);
+	                                 mate_panel_applet_menu_cmd_lock,
+	                                 applet);
 	gtk_toggle_action_set_active (GTK_TOGGLE_ACTION (action), locked);
 	g_signal_handlers_unblock_by_func (action,
-					   mate_panel_applet_menu_cmd_lock,
-					   applet);
+	                                   mate_panel_applet_menu_cmd_lock,
+	                                   applet);
 
 	mate_panel_applet_menu_update_actions (applet);
 
 	g_object_notify (G_OBJECT (applet), "locked");
 
-	if (applet->priv->connection) {
+	if (priv->connection) {
 		GError *error = NULL;
 
-		g_dbus_connection_emit_signal (applet->priv->connection,
-					       NULL,
-					       applet->priv->object_path,
-					       MATE_PANEL_APPLET_INTERFACE,
-					       locked ? "Lock" : "Unlock",
-					       NULL, &error);
+		g_dbus_connection_emit_signal (priv->connection,
+		                               NULL,
+		                               priv->object_path,
+		                               MATE_PANEL_APPLET_INTERFACE,
+		                               locked ? "Lock" : "Unlock",
+		                               NULL, &error);
 		if (error) {
 			g_printerr ("Failed to send signal %s: %s\n",
-				    locked ? "Lock" : "Unlock",
-				    error->message);
+			            locked ? "Lock" : "Unlock",
+			            error->message);
 			g_error_free (error);
 		}
 	}
@@ -432,22 +473,30 @@ mate_panel_applet_set_locked (MatePanelApplet *applet,
 gboolean
 mate_panel_applet_get_locked_down (MatePanelApplet *applet)
 {
-	g_return_val_if_fail (PANEL_IS_APPLET (applet), FALSE);
+	MatePanelAppletPrivate *priv;
 
-	return applet->priv->locked_down;
+	g_return_val_if_fail (MATE_PANEL_IS_APPLET (applet), FALSE);
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	return priv->locked_down;
 }
 
 /* Applets cannot set the lockdown state, so API is not public. */
 static void
 mate_panel_applet_set_locked_down (MatePanelApplet *applet,
-			      gboolean     locked_down)
+                                   gboolean         locked_down)
 {
-	g_return_if_fail (PANEL_IS_APPLET (applet));
+	MatePanelAppletPrivate *priv;
 
-	if (applet->priv->locked_down == locked_down)
+	g_return_if_fail (MATE_PANEL_IS_APPLET (applet));
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->locked_down == locked_down)
 		return;
 
-	applet->priv->locked_down = locked_down;
+	priv->locked_down = locked_down;
 	mate_panel_applet_menu_update_actions (applet);
 
 	g_object_notify (G_OBJECT (applet), "locked-down");
@@ -463,24 +512,27 @@ static void
 mate_panel_applet_init_atoms (Display *xdisplay)
 {
 	if (_net_wm_window_type == None)
-		_net_wm_window_type = XInternAtom (xdisplay,
-						   "_NET_WM_WINDOW_TYPE",
-						   False);
+		_net_wm_window_type
+			= XInternAtom (xdisplay,
+			               "_NET_WM_WINDOW_TYPE",
+			               False);
 
 	if (_net_wm_window_type_dock == None)
-		_net_wm_window_type_dock = XInternAtom (xdisplay,
-							"_NET_WM_WINDOW_TYPE_DOCK",
-							False);
+		_net_wm_window_type_dock
+			= XInternAtom (xdisplay,
+			               "_NET_WM_WINDOW_TYPE_DOCK",
+			               False);
 
 	if (_net_active_window == None)
-		_net_active_window = XInternAtom (xdisplay,
-						  "_NET_ACTIVE_WINDOW",
-						  False);
+		_net_active_window
+			= XInternAtom (xdisplay,
+			               "_NET_ACTIVE_WINDOW",
+			               False);
 }
 
 static Window
 mate_panel_applet_find_toplevel_dock_window (MatePanelApplet *applet,
-					Display	    *xdisplay)
+                                             Display         *xdisplay)
 {
 	GtkWidget  *toplevel;
 	Window	    xwin;
@@ -548,27 +600,28 @@ mate_panel_applet_find_toplevel_dock_window (MatePanelApplet *applet,
  *   2) Sends a _NET_ACTIVE_WINDOW message to get that panel focused
  */
 void
-mate_panel_applet_request_focus (MatePanelApplet	 *applet,
-			    guint32	  timestamp)
+mate_panel_applet_request_focus (MatePanelApplet *applet,
+                                 guint32          timestamp)
 {
 #ifdef HAVE_X11
-	GdkScreen  *screen;
-	GdkWindow  *root;
-	GdkDisplay *display;
-	Display	   *xdisplay;
-	Window	    dock_xwindow;
-	Window	    xroot;
-	XEvent	    xev;
+	MatePanelAppletPrivate *priv;
+	GdkScreen              *screen;
+	GdkWindow              *root;
+	GdkDisplay             *display;
+	Display	               *xdisplay;
+	Window	                dock_xwindow;
+	Window	                xroot;
+	XEvent	                xev;
 
 	if (!GDK_IS_X11_DISPLAY (gdk_display_get_default ()))
 		return;
 
-	g_return_if_fail (PANEL_IS_APPLET (applet));
+	g_return_if_fail (MATE_PANEL_IS_APPLET (applet));
 
-	screen	= gtk_window_get_screen (GTK_WINDOW (applet->priv->plug));
-	root	= gdk_screen_get_root_window (screen);
-	display = gdk_screen_get_display (screen);
-
+	priv     = mate_panel_applet_get_instance_private (applet);
+	screen	 = gtk_window_get_screen (GTK_WINDOW (priv->plug));
+	root	 = gdk_screen_get_root_window (screen);
+	display  = gdk_screen_get_display (screen);
 	xdisplay = GDK_DISPLAY_XDISPLAY (display);
 	xroot	 = GDK_WINDOW_XID (root);
 
@@ -591,71 +644,82 @@ mate_panel_applet_request_focus (MatePanelApplet	 *applet,
 	xev.xclient.data.l[4]	 = 0;
 
 	XSendEvent (xdisplay,
-		    xroot, False,
-		    SubstructureRedirectMask | SubstructureNotifyMask,
-		    &xev);
+	            xroot, False,
+	            SubstructureRedirectMask | SubstructureNotifyMask,
+	            &xev);
 #endif
 }
 
 static GtkAction *
 mate_panel_applet_menu_get_action (MatePanelApplet *applet,
-			      const gchar *action)
+                                   const gchar     *action)
 {
-	return gtk_action_group_get_action (applet->priv->panel_action_group, action);
+	MatePanelAppletPrivate *priv;
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	return gtk_action_group_get_action (priv->panel_action_group, action);
 }
 
 static void
 mate_panel_applet_menu_update_actions (MatePanelApplet *applet)
 {
-	gboolean locked = applet->priv->locked;
-	gboolean locked_down = applet->priv->locked_down;
+	MatePanelAppletPrivate *priv;
 
+	priv = mate_panel_applet_get_instance_private (applet);
 	g_object_set (mate_panel_applet_menu_get_action (applet, "Lock"),
-		      "visible", !locked_down, NULL);
+	              "visible", !priv->locked_down,
+	              NULL);
 	g_object_set (mate_panel_applet_menu_get_action (applet, "Move"),
-		      "sensitive", !locked,
-		      "visible", !locked_down,
-		      NULL);
+	              "sensitive", !priv->locked,
+	              "visible", !priv->locked_down,
+	              NULL);
 	g_object_set (mate_panel_applet_menu_get_action (applet, "Remove"),
-		      "sensitive", !locked,
-		      "visible", !locked_down,
-		      NULL);
+	              "sensitive", !priv->locked,
+	              "visible", !priv->locked_down,
+	              NULL);
 }
 
 static void
-mate_panel_applet_menu_cmd_remove (GtkAction   *action,
-			      MatePanelApplet *applet)
+mate_panel_applet_menu_cmd_remove (GtkAction       *action,
+                                   MatePanelApplet *applet)
 {
-	GError *error = NULL;
+	MatePanelAppletPrivate *priv;
+	GError                 *error = NULL;
 
-	if (!applet->priv->connection)
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (!priv->connection)
 		return;
 
-	g_dbus_connection_emit_signal (applet->priv->connection,
-				       NULL,
-				       applet->priv->object_path,
-				       MATE_PANEL_APPLET_INTERFACE,
-				       "RemoveFromPanel",
-				       NULL, &error);
+	g_dbus_connection_emit_signal (priv->connection,
+	                               NULL,
+	                               priv->object_path,
+	                               MATE_PANEL_APPLET_INTERFACE,
+	                               "RemoveFromPanel",
+	                               NULL, &error);
 	if (error) {
 		g_printerr ("Failed to send signal RemoveFromPanel: %s\n",
-			    error->message);
+		            error->message);
 		g_error_free (error);
 	}
 }
 
 static void
-mate_panel_applet_menu_cmd_move (GtkAction   *action,
-			    MatePanelApplet *applet)
+mate_panel_applet_menu_cmd_move (GtkAction       *action,
+                                 MatePanelApplet *applet)
 {
-	GError *error = NULL;
+	MatePanelAppletPrivate *priv;
+	GError                 *error = NULL;
 
-	if (!applet->priv->connection)
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (!priv->connection)
 		return;
 
-	g_dbus_connection_emit_signal (applet->priv->connection,
+	g_dbus_connection_emit_signal (priv->connection,
 				       NULL,
-				       applet->priv->object_path,
+				       priv->object_path,
 				       MATE_PANEL_APPLET_INTERFACE,
 				       "Move",
 				       NULL, &error);
@@ -667,8 +731,8 @@ mate_panel_applet_menu_cmd_move (GtkAction   *action,
 }
 
 static void
-mate_panel_applet_menu_cmd_lock (GtkAction   *action,
-			    MatePanelApplet *applet)
+mate_panel_applet_menu_cmd_lock (GtkAction       *action,
+                                 MatePanelApplet *applet)
 {
 	gboolean locked;
 
@@ -677,29 +741,32 @@ mate_panel_applet_menu_cmd_lock (GtkAction   *action,
 }
 
 void
-mate_panel_applet_setup_menu (MatePanelApplet    *applet,
-			 const gchar    *xml,
-			 GtkActionGroup *applet_action_group)
+mate_panel_applet_setup_menu (MatePanelApplet  *applet,
+                              const gchar      *xml,
+                              GtkActionGroup   *applet_action_group)
 {
-	gchar  *new_xml;
-	GError *error = NULL;
+	MatePanelAppletPrivate *priv;
+	gchar                  *new_xml;
+	GError                 *error = NULL;
 
-	g_return_if_fail (PANEL_IS_APPLET (applet));
+	g_return_if_fail (MATE_PANEL_IS_APPLET (applet));
 	g_return_if_fail (xml != NULL);
 
-	if (applet->priv->applet_action_group)
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->applet_action_group)
 		return;
 
-	applet->priv->applet_action_group = g_object_ref (applet_action_group);
-	gtk_ui_manager_insert_action_group (applet->priv->ui_manager,
+	priv->applet_action_group = g_object_ref (applet_action_group);
+	gtk_ui_manager_insert_action_group (priv->ui_manager,
 					    applet_action_group, 0);
 
 	new_xml = g_strdup_printf ("<ui><popup name=\"MatePanelAppletPopup\" action=\"AppletItems\">"
-				   "<placeholder name=\"AppletItems\">%s\n</placeholder>\n"
-				   "</popup></ui>\n", xml);
-	gtk_ui_manager_add_ui_from_string (applet->priv->ui_manager, new_xml, -1, &error);
+	                           "<placeholder name=\"AppletItems\">%s\n</placeholder>\n"
+	                           "</popup></ui>\n", xml);
+	gtk_ui_manager_add_ui_from_string (priv->ui_manager, new_xml, -1, &error);
 	g_free (new_xml);
-	gtk_ui_manager_ensure_update (applet->priv->ui_manager);
+	gtk_ui_manager_ensure_update (priv->ui_manager);
 	if (error) {
 		g_warning ("Error merging menus: %s\n", error->message);
 		g_error_free (error);
@@ -708,8 +775,8 @@ mate_panel_applet_setup_menu (MatePanelApplet    *applet,
 
 void
 mate_panel_applet_setup_menu_from_file (MatePanelApplet    *applet,
-				   const gchar    *filename,
-				   GtkActionGroup *applet_action_group)
+                                        const gchar        *filename,
+                                        GtkActionGroup     *applet_action_group)
 {
 	gchar  *xml = NULL;
 	GError *error = NULL;
@@ -742,8 +809,8 @@ mate_panel_applet_setup_menu_from_file (MatePanelApplet    *applet,
  **/
 void
 mate_panel_applet_setup_menu_from_resource (MatePanelApplet    *applet,
-				       const gchar    *resource_path,
-				       GtkActionGroup *action_group)
+                                            const gchar        *resource_path,
+                                            GtkActionGroup     *action_group)
 {
 	GBytes *bytes;
 	GError *error = NULL;
@@ -754,8 +821,8 @@ mate_panel_applet_setup_menu_from_resource (MatePanelApplet    *applet,
 
 	if (bytes) {
 		mate_panel_applet_setup_menu (applet,
-					 g_bytes_get_data (bytes, NULL),
-					 action_group);
+		                              g_bytes_get_data (bytes, NULL),
+		                              action_group);
 	} else {
 		g_warning ("%s", error->message);
 		g_error_free (error);
@@ -767,46 +834,50 @@ mate_panel_applet_setup_menu_from_resource (MatePanelApplet    *applet,
 static void
 mate_panel_applet_finalize (GObject *object)
 {
-	MatePanelApplet *applet = MATE_PANEL_APPLET (object);
+	MatePanelApplet        *applet;
+	MatePanelAppletPrivate *priv;
 
-	if (applet->priv->connection) {
-		if (applet->priv->object_id)
-			g_dbus_connection_unregister_object (applet->priv->connection,
-							     applet->priv->object_id);
-		applet->priv->object_id = 0;
-		g_object_unref (applet->priv->connection);
-		applet->priv->connection = NULL;
+	applet = MATE_PANEL_APPLET (object);
+	priv   = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->connection) {
+		if (priv->object_id)
+			g_dbus_connection_unregister_object (priv->connection,
+							     priv->object_id);
+		priv->object_id = 0;
+		g_object_unref (priv->connection);
+		priv->connection = NULL;
 	}
 
-	if (applet->priv->object_path) {
-		g_free (applet->priv->object_path);
-		applet->priv->object_path = NULL;
+	if (priv->object_path) {
+		g_free (priv->object_path);
+		priv->object_path = NULL;
 	}
 
 	mate_panel_applet_set_preferences_path (applet, NULL);
 
-	if (applet->priv->applet_action_group) {
-		g_object_unref (applet->priv->applet_action_group);
-		applet->priv->applet_action_group = NULL;
+	if (priv->applet_action_group) {
+		g_object_unref (priv->applet_action_group);
+		priv->applet_action_group = NULL;
 	}
 
-	if (applet->priv->panel_action_group) {
-		g_object_unref (applet->priv->panel_action_group);
-		applet->priv->panel_action_group = NULL;
+	if (priv->panel_action_group) {
+		g_object_unref (priv->panel_action_group);
+		priv->panel_action_group = NULL;
 	}
 
-	if (applet->priv->ui_manager) {
-		g_object_unref (applet->priv->ui_manager);
-		applet->priv->ui_manager = NULL;
+	if (priv->ui_manager) {
+		g_object_unref (priv->ui_manager);
+		priv->ui_manager = NULL;
 	}
 
-	g_free (applet->priv->size_hints);
-	g_free (applet->priv->prefs_path);
-	g_free (applet->priv->background);
-	g_free (applet->priv->id);
+	g_free (priv->size_hints);
+	g_free (priv->prefs_path);
+	g_free (priv->background);
+	g_free (priv->id);
 
 	/* closure is owned by the factory */
-	applet->priv->closure = NULL;
+	priv->closure = NULL;
 
 	G_OBJECT_CLASS (mate_panel_applet_parent_class)->finalize (object);
 }
@@ -814,9 +885,9 @@ mate_panel_applet_finalize (GObject *object)
 static gboolean
 container_has_focusable_child (GtkContainer *container)
 {
-	GList *list;
-	GList *t;
-	gboolean retval = FALSE;
+	GList    *list;
+	GList    *t;
+	gboolean  retval = FALSE;
 
 	list = gtk_container_get_children (container);
 
@@ -837,39 +908,49 @@ container_has_focusable_child (GtkContainer *container)
 
 static void
 mate_panel_applet_menu_popup (MatePanelApplet *applet,
-                              GdkEvent    *event)
+                              GdkEvent        *event)
 {
-	GtkWidget *menu;
+        MatePanelAppletPrivate *priv;
+	GtkWidget              *menu;
+	GtkWidget              *toplevel;
+	GdkScreen              *screen;
+	GdkVisual              *visual;
+	GtkStyleContext        *context;
+	GdkGravity              widget_anchor;
+	GdkGravity              menu_anchor;
 
-	menu = gtk_ui_manager_get_widget (applet->priv->ui_manager,
-					  "/MatePanelAppletPopup");
+	priv = mate_panel_applet_get_instance_private (applet);
+	menu = gtk_ui_manager_get_widget (priv->ui_manager,
+	                                  "/MatePanelAppletPopup");
 
 /* Set up theme and transparency support */
-	GtkWidget *toplevel = gtk_widget_get_toplevel (menu);
+	toplevel = gtk_widget_get_toplevel (menu);
 /* Fix any failures of compiz/other wm's to communicate with gtk for transparency */
-	GdkScreen *screen = gtk_widget_get_screen(GTK_WIDGET(toplevel));
-	GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
-	gtk_widget_set_visual(GTK_WIDGET(toplevel), visual);
+	screen = gtk_widget_get_screen (toplevel);
+	visual = gdk_screen_get_rgba_visual (screen);
+	gtk_widget_set_visual (toplevel, visual);
+
 /* Set menu and it's toplevel window to follow panel theme */
-	GtkStyleContext *context;
-	context = gtk_widget_get_style_context (GTK_WIDGET(toplevel));
-	gtk_style_context_add_class(context,"gnome-panel-menu-bar");
-	gtk_style_context_add_class(context,"mate-panel-menu-bar");
-	GdkGravity widget_anchor = GDK_GRAVITY_NORTH_WEST;
-	GdkGravity menu_anchor = GDK_GRAVITY_NORTH_WEST;
-	switch (applet->priv->orient) {
-	case MATE_PANEL_APPLET_ORIENT_UP:
-		menu_anchor = GDK_GRAVITY_SOUTH_WEST;
-		break;
-	case MATE_PANEL_APPLET_ORIENT_DOWN:
-		widget_anchor = GDK_GRAVITY_SOUTH_WEST;
-		break;
-	case MATE_PANEL_APPLET_ORIENT_LEFT:
-		menu_anchor = GDK_GRAVITY_NORTH_EAST;
-		break;
-	case MATE_PANEL_APPLET_ORIENT_RIGHT:
-		widget_anchor = GDK_GRAVITY_NORTH_EAST;
-		break;
+	context = gtk_widget_get_style_context (toplevel);
+	gtk_style_context_add_class (context, "gnome-panel-menu-bar");
+	gtk_style_context_add_class (context, "mate-panel-menu-bar");
+	switch (priv->orient) {
+		case MATE_PANEL_APPLET_ORIENT_UP:
+			menu_anchor   = GDK_GRAVITY_SOUTH_WEST;
+			widget_anchor = GDK_GRAVITY_NORTH_WEST;
+			break;
+		case MATE_PANEL_APPLET_ORIENT_DOWN:
+			menu_anchor   = GDK_GRAVITY_NORTH_WEST;
+			widget_anchor = GDK_GRAVITY_SOUTH_WEST;
+			break;
+		case MATE_PANEL_APPLET_ORIENT_LEFT:
+			menu_anchor   = GDK_GRAVITY_NORTH_EAST;
+			widget_anchor = GDK_GRAVITY_NORTH_WEST;
+			break;
+		case MATE_PANEL_APPLET_ORIENT_RIGHT:
+			menu_anchor   = GDK_GRAVITY_NORTH_WEST;
+			widget_anchor = GDK_GRAVITY_NORTH_EAST;
+			break;
 	}
 	gtk_menu_popup_at_widget (GTK_MENU (menu),
 	                          GTK_WIDGET (applet),
@@ -888,7 +969,7 @@ mate_panel_applet_can_focus (GtkWidget *widget)
 	if (gtk_widget_get_has_tooltip (widget))
 		return TRUE;
 
-	if (!PANEL_IS_APPLET (widget))
+	if (!MATE_PANEL_IS_APPLET (widget))
 		return FALSE;
 
 	return !container_has_focusable_child (GTK_CONTAINER (widget));
@@ -896,20 +977,23 @@ mate_panel_applet_can_focus (GtkWidget *widget)
 
 /* Taken from libmatecomponentui/matecomponent/matecomponent-plug.c */
 static gboolean
-mate_panel_applet_button_event (MatePanelApplet      *applet,
-			   GdkEventButton *event)
+mate_panel_applet_button_event (MatePanelApplet  *applet,
+                                GdkEventButton   *event)
 {
 #ifdef HAVE_X11
-	GtkWidget *widget;
-	GdkWindow *window;
-	GdkWindow *socket_window;
-	XEvent     xevent;
-	GdkDisplay *display;
+	MatePanelAppletPrivate *priv;
+	GtkWidget              *widget;
+	GdkWindow              *window;
+	GdkWindow              *socket_window;
+	XEvent                  xevent;
+	GdkDisplay             *display;
 
-	if (!applet->priv->out_of_process)
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (!priv->out_of_process)
 		return FALSE;
 
-	widget = applet->priv->plug;
+	widget = priv->plug;
 
 	if (!gtk_widget_is_toplevel (widget))
 		return FALSE;
@@ -972,7 +1056,7 @@ mate_panel_applet_button_event (MatePanelApplet      *applet,
 
 static gboolean
 mate_panel_applet_button_press (GtkWidget      *widget,
-			   GdkEventButton *event)
+                                GdkEventButton *event)
 {
 	MatePanelApplet *applet = MATE_PANEL_APPLET (widget);
 
@@ -994,11 +1078,9 @@ mate_panel_applet_button_press (GtkWidget      *widget,
 
 static gboolean
 mate_panel_applet_button_release (GtkWidget      *widget,
-			     GdkEventButton *event)
+                                  GdkEventButton *event)
 {
-	MatePanelApplet *applet = MATE_PANEL_APPLET (widget);
-
-	return mate_panel_applet_button_event (applet, event);
+	return mate_panel_applet_button_event (MATE_PANEL_APPLET (widget), event);
 }
 
 /*Open the applet context menu only on Menu key
@@ -1006,14 +1088,13 @@ mate_panel_applet_button_release (GtkWidget      *widget,
  */
 static gboolean
 mate_panel_applet_key_press_event (GtkWidget   *widget,
-			      GdkEventKey *event)
+                                   GdkEventKey *event)
 {
     if (event->keyval == GDK_KEY_Menu) {
         mate_panel_applet_menu_popup (MATE_PANEL_APPLET (widget), (GdkEvent *) event);
         return TRUE;
     }
-    else
-        return FALSE;
+    return FALSE;
 }
 
 static void
@@ -1021,19 +1102,19 @@ mate_panel_applet_get_preferred_width (GtkWidget *widget,
 				       int       *minimum_width,
 				       int       *natural_width)
 {
-	GTK_WIDGET_CLASS (mate_panel_applet_parent_class)->get_preferred_width (widget,
-										minimum_width,
-										natural_width);
+	GTK_WIDGET_CLASS (mate_panel_applet_parent_class)
+		->get_preferred_width (widget, minimum_width, natural_width);
 
 #if !GTK_CHECK_VERSION (3, 23, 0)
-	MatePanelApplet *applet = MATE_PANEL_APPLET (widget);
-	if (applet->priv->out_of_process) {
+	MatePanelAppletPrivate *priv;
+
+	priv = mate_panel_applet_get_instance_private (MATE_PANEL_APPLET (widget));
+	if (priv->out_of_process) {
 		/* Out-of-process applets end up scaled up doubly with GTK 3.22.
 		 * For these builds divide by the scale factor to ensure
 		 * they are back at their own intended size.
 		 */
-		gint scale;
-		scale = gtk_widget_get_scale_factor (widget);
+		gint scale = gtk_widget_get_scale_factor (widget);
 		*minimum_width /= scale;
 		*natural_width /= scale;
 	}
@@ -1045,13 +1126,14 @@ mate_panel_applet_get_preferred_height (GtkWidget *widget,
 					int       *minimum_height,
 					int       *natural_height)
 {
-	GTK_WIDGET_CLASS (mate_panel_applet_parent_class)->get_preferred_height (widget,
-										minimum_height,
-										natural_height);
+	GTK_WIDGET_CLASS (mate_panel_applet_parent_class)
+		->get_preferred_height (widget, minimum_height, natural_height);
 
 #if !GTK_CHECK_VERSION (3, 23, 0)
-	MatePanelApplet *applet = MATE_PANEL_APPLET (widget);
-	if (applet->priv->out_of_process) {
+	MatePanelAppletPrivate *priv;
+
+	priv = mate_panel_applet_get_instance_private (MATE_PANEL_APPLET (widget));
+	if (priv->out_of_process) {
 		gint scale;
 		/* Out-of-process applets end up scaled up doubly with GTK 3.22.
 		 * For these builds divide by the scale factor to ensure
@@ -1080,19 +1162,23 @@ mate_panel_applet_get_request_mode (GtkWidget *widget)
 
 static void
 mate_panel_applet_size_allocate (GtkWidget     *widget,
-			    GtkAllocation *allocation)
+                                 GtkAllocation *allocation)
 {
-	GtkAllocation  child_allocation;
-	MatePanelApplet   *applet;
+	GtkAllocation           child_allocation;
+	MatePanelApplet        *applet;
+	MatePanelAppletPrivate *priv;
 
 	if (!mate_panel_applet_can_focus (widget)) {
 		GTK_WIDGET_CLASS (mate_panel_applet_parent_class)->size_allocate (widget, allocation);
 	} else {
+		int        border_width;
+		GtkBin    *bin;
+		GtkWidget *child;
 
-		int border_width = gtk_container_get_border_width (GTK_CONTAINER (widget));
+		border_width = gtk_container_get_border_width (GTK_CONTAINER (widget));
 
 		gtk_widget_set_allocation (widget, allocation);
-		GtkBin *bin = GTK_BIN (widget);
+		bin = GTK_BIN (widget);
 
 		child_allocation.x = 0;
 		child_allocation.y = 0;
@@ -1102,28 +1188,30 @@ mate_panel_applet_size_allocate (GtkWidget     *widget,
 
 		if (gtk_widget_get_realized (widget))
 			gdk_window_move_resize (gtk_widget_get_window (widget),
-						allocation->x + border_width,
-						allocation->y + border_width,
-						child_allocation.width,
-						child_allocation.height);
+			                        allocation->x + border_width,
+			                        allocation->y + border_width,
+			                        child_allocation.width,
+			                        child_allocation.height);
 
-		GtkWidget *child = gtk_bin_get_child (bin);
+		child = gtk_bin_get_child (bin);
 		if (child)
 			gtk_widget_size_allocate (child, &child_allocation);
 	}
 
 	applet = MATE_PANEL_APPLET (widget);
+	priv   = mate_panel_applet_get_instance_private (applet);
 
-	if (applet->priv->previous_height != allocation->height ||
-	    applet->priv->previous_width  != allocation->width) {
-		applet->priv->previous_height = allocation->height;
-		applet->priv->previous_width = allocation->width;
-
+	if ((priv->previous_height != allocation->height) ||
+	    (priv->previous_width  != allocation->width)) {
+		priv->previous_height = allocation->height;
+		priv->previous_width  = allocation->width;
 		mate_panel_applet_handle_background (applet);
 	}
 }
 
-static gboolean mate_panel_applet_draw(GtkWidget* widget, cairo_t* cr)
+static gboolean
+mate_panel_applet_draw (GtkWidget *widget,
+                        cairo_t   *cr)
 {
 	GtkStyleContext *context;
 	int border_width;
@@ -1159,21 +1247,21 @@ static gboolean mate_panel_applet_draw(GtkWidget* widget, cairo_t* cr)
 
 static gboolean
 mate_panel_applet_focus (GtkWidget        *widget,
-		    GtkDirectionType  dir)
+                         GtkDirectionType  dir)
 {
-	gboolean ret;
-	GtkWidget *previous_focus_child;
-	MatePanelApplet *applet;
+	gboolean                ret;
+	GtkWidget              *previous_focus_child;
+	MatePanelAppletPrivate *priv;
 
-	g_return_val_if_fail (PANEL_IS_APPLET (widget), FALSE);
+	g_return_val_if_fail (MATE_PANEL_IS_APPLET (widget), FALSE);
 
-	applet = MATE_PANEL_APPLET (widget);
-	if (applet->priv->moving_focus_out) {
+	priv = mate_panel_applet_get_instance_private (MATE_PANEL_APPLET (widget));
+	if (priv->moving_focus_out) {
 		/*
 		 * Applet will retain focus if there is nothing else on the
 		 * panel to get focus
 		 */
-		applet->priv->moving_focus_out = FALSE;
+		priv->moving_focus_out = FALSE;
 		return FALSE;
 	}
 
@@ -1217,9 +1305,9 @@ mate_panel_applet_parse_color (const gchar *color_str,
 #ifdef HAVE_X11
 static gboolean
 mate_panel_applet_parse_pixmap_str (const char *str,
-			       Window          *xid,
-			       int             *x,
-			       int             *y)
+                                    Window     *xid,
+                                    int        *x,
+                                    int        *y)
 {
 	char **elements;
 	char  *tmp;
@@ -1284,9 +1372,9 @@ mate_panel_applet_create_foreign_surface_for_display (GdkDisplay *display,
 
 static cairo_pattern_t *
 mate_panel_applet_get_pattern_from_pixmap (MatePanelApplet *applet,
-			 Window           xid,
-			 int              x,
-			 int              y)
+                                           Window           xid,
+                                           int              x,
+                                           int              y)
 {
 	cairo_surface_t *background;
 	cairo_surface_t *surface;
@@ -1297,7 +1385,7 @@ mate_panel_applet_get_pattern_from_pixmap (MatePanelApplet *applet,
 	cairo_t         *cr;
 	cairo_pattern_t *pattern;
 
-	g_return_val_if_fail (PANEL_IS_APPLET (applet), NULL);
+	g_return_val_if_fail (MATE_PANEL_IS_APPLET (applet), NULL);
 
 	if (!gtk_widget_get_realized (GTK_WIDGET (applet)))
 		return NULL;
@@ -1349,15 +1437,17 @@ mate_panel_applet_handle_background_string (MatePanelApplet  *applet,
 					    GdkRGBA          *color,
 					    cairo_pattern_t **pattern)
 {
+	MatePanelAppletPrivate         *priv;
 	MatePanelAppletBackgroundType   retval;
 	char                          **elements;
 
+	priv = mate_panel_applet_get_instance_private (applet);
 	retval = PANEL_NO_BACKGROUND;
 
-	if (!gtk_widget_get_realized (GTK_WIDGET (applet)) || !applet->priv->background)
+	if (!gtk_widget_get_realized (GTK_WIDGET (applet)) || !priv->background)
 		return retval;
 
-	elements = g_strsplit (applet->priv->background, ":", -1);
+	elements = g_strsplit (priv->background, ":", -1);
 
 	if (elements [0] && !strcmp (elements [0], "none" )) {
 		retval = PANEL_NO_BACKGROUND;
@@ -1416,11 +1506,12 @@ mate_panel_applet_get_background (MatePanelApplet  *applet,
 				  GdkRGBA          *color,
 				  cairo_pattern_t **pattern)
 {
-	g_return_val_if_fail (PANEL_IS_APPLET (applet), PANEL_NO_BACKGROUND);
+	g_return_val_if_fail (MATE_PANEL_IS_APPLET (applet), PANEL_NO_BACKGROUND);
 
 	/* initial sanity */
 	if (pattern != NULL)
 		*pattern = NULL;
+
 	if (color != NULL)
 		memset (color, 0, sizeof (GdkRGBA));
 
@@ -1429,17 +1520,20 @@ mate_panel_applet_get_background (MatePanelApplet  *applet,
 
 static void
 mate_panel_applet_set_background_string (MatePanelApplet *applet,
-				    const gchar *background)
+                                         const gchar     *background)
 {
-	if (applet->priv->background == background)
+	MatePanelAppletPrivate *priv;
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->background == background)
 		return;
 
-	if (g_strcmp0 (applet->priv->background, background) == 0)
+	if (g_strcmp0 (priv->background, background) == 0)
 		return;
 
-	if (applet->priv->background)
-		g_free (applet->priv->background);
-	applet->priv->background = background ? g_strdup (background) : NULL;
+	g_free (priv->background);
+	priv->background = background ? g_strdup (background) : NULL;
 	mate_panel_applet_handle_background (applet);
 
 	g_object_notify (G_OBJECT (applet), "background");
@@ -1449,9 +1543,8 @@ static void
 mate_panel_applet_handle_background (MatePanelApplet *applet)
 {
 	MatePanelAppletBackgroundType  type;
-
-	GdkRGBA                    color;
-	cairo_pattern_t           *pattern;
+	GdkRGBA                        color;
+	cairo_pattern_t               *pattern;
 
 	type = mate_panel_applet_get_background (applet, &color, &pattern);
 
@@ -1485,61 +1578,71 @@ mate_panel_applet_handle_background (MatePanelApplet *applet)
 static void
 mate_panel_applet_realize (GtkWidget *widget)
 {
+	MatePanelApplet        *applet;
+	MatePanelAppletPrivate *priv;
+
 	GTK_WIDGET_CLASS (mate_panel_applet_parent_class)->realize (widget);
 
-	if (MATE_PANEL_APPLET (widget)->priv->background)
-		mate_panel_applet_handle_background (MATE_PANEL_APPLET (widget));
+	applet = MATE_PANEL_APPLET (widget);
+	priv = mate_panel_applet_get_instance_private (applet);
+	if (priv->background)
+		mate_panel_applet_handle_background (applet);
 }
 
 static void
-mate_panel_applet_move_focus_out_of_applet (MatePanelApplet      *applet,
-				       GtkDirectionType  dir)
+mate_panel_applet_move_focus_out_of_applet (MatePanelApplet  *applet,
+                                            GtkDirectionType  dir)
 {
-	GtkWidget *toplevel;
+	MatePanelAppletPrivate *priv;
+	GtkWidget              *toplevel;
 
-	applet->priv->moving_focus_out = TRUE;
+	priv = mate_panel_applet_get_instance_private (applet);
+	priv->moving_focus_out = TRUE;
 	toplevel = gtk_widget_get_toplevel (GTK_WIDGET (applet));
 	g_return_if_fail (toplevel);
 
 	gtk_widget_child_focus (toplevel, dir);
-	applet->priv->moving_focus_out = FALSE;
+	priv->moving_focus_out = FALSE;
 }
 
 static void
-mate_panel_applet_change_background(MatePanelApplet *applet,
-				    MatePanelAppletBackgroundType type,
-				    GdkRGBA* color,
-				    cairo_pattern_t *pattern)
+mate_panel_applet_change_background(MatePanelApplet               *applet,
+                                    MatePanelAppletBackgroundType  type,
+                                    GdkRGBA                       *color,
+                                    cairo_pattern_t               *pattern)
 {
-	GdkWindow *window;
+	MatePanelAppletPrivate *priv;
+	GdkWindow              *window;
 
-	if (applet->priv->out_of_process)
-		window = gtk_widget_get_window (GTK_WIDGET (applet->priv->plug));
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	if (priv->out_of_process)
+		window = gtk_widget_get_window (GTK_WIDGET (priv->plug));
 	else
 		window = gtk_widget_get_window (GTK_WIDGET (applet));
 
-	gtk_widget_set_app_paintable(GTK_WIDGET(applet),TRUE);
+	gtk_widget_set_app_paintable (GTK_WIDGET (applet),TRUE);
 
-	if (applet->priv->out_of_process)
-		_mate_panel_applet_apply_css(GTK_WIDGET(applet->priv->plug),type);
+	if (priv->out_of_process)
+		_mate_panel_applet_apply_css (GTK_WIDGET (priv->plug),type);
 
 	switch (type) {
 		case PANEL_NO_BACKGROUND:
-			if (applet->priv->out_of_process){
-				pattern = cairo_pattern_create_rgba (0,0,0,0);     /* Using NULL here breaks transparent */
-				gdk_window_set_background_pattern(window,pattern); /* backgrounds set by GTK theme */
+			if (priv->out_of_process) {
+				pattern = cairo_pattern_create_rgba (0, 0, 0, 0);    /* Using NULL here breaks transparent */
+				gdk_window_set_background_pattern (window, pattern); /* backgrounds set by GTK theme */
 			}
 			break;
 		case PANEL_COLOR_BACKGROUND:
-			if (applet->priv->out_of_process){
-				gdk_window_set_background_rgba(window,color);
-				gtk_widget_queue_draw (applet->priv->plug); /*change the bg right away always */
+			if (priv->out_of_process) {
+				gdk_window_set_background_rgba (window, color);
+				gtk_widget_queue_draw (priv->plug); /* change the bg right away always */
 			}
 			break;
 		case PANEL_PIXMAP_BACKGROUND:
-			if (applet->priv->out_of_process){
-				gdk_window_set_background_pattern(window,pattern);
-				gtk_widget_queue_draw (applet->priv->plug); /*change the bg right away always */
+			if (priv->out_of_process) {
+				gdk_window_set_background_pattern (window, pattern);
+				gtk_widget_queue_draw (priv->plug); /*change the bg right away always */
 			}
 			break;
 		default:
@@ -1547,103 +1650,110 @@ mate_panel_applet_change_background(MatePanelApplet *applet,
 			break;
 	}
 
-	if (applet->priv->out_of_process){
-		GtkStyleContext *context =
-			gtk_widget_get_style_context (GTK_WIDGET(applet->priv->plug));
+	if (priv->out_of_process){
+		GtkStyleContext *context;
 
-		if (applet->priv->orient == MATE_PANEL_APPLET_ORIENT_UP ||
-			applet->priv->orient == MATE_PANEL_APPLET_ORIENT_DOWN){
-			gtk_style_context_add_class(context,"horizontal");
-		}
-		else {
-			gtk_style_context_add_class(context,"vertical");
-		}
+		context = gtk_widget_get_style_context (GTK_WIDGET (priv->plug));
+
+		if (priv->orient == MATE_PANEL_APPLET_ORIENT_UP ||
+		    priv->orient == MATE_PANEL_APPLET_ORIENT_DOWN)
+			gtk_style_context_add_class (context, "horizontal");
+		else
+			gtk_style_context_add_class (context, "vertical");
 	}
 }
 
 static void
 mate_panel_applet_get_property (GObject    *object,
-			   guint       prop_id,
-			   GValue     *value,
-			   GParamSpec *pspec)
+                                guint       prop_id,
+                                GValue     *value,
+                                GParamSpec *pspec)
 {
-	MatePanelApplet *applet = MATE_PANEL_APPLET (object);
+	MatePanelApplet        *applet;
+	MatePanelAppletPrivate *priv;
+
+	applet = MATE_PANEL_APPLET (object);
+	priv = mate_panel_applet_get_instance_private (applet);
 
 	switch (prop_id) {
-	case PROP_OUT_OF_PROCESS:
-		g_value_set_boolean (value, applet->priv->out_of_process);
-		break;
-	case PROP_ID:
-		g_value_set_string (value, applet->priv->id);
-		break;
-	case PROP_CLOSURE:
-		g_value_set_pointer (value, applet->priv->closure);
-		break;
-	case PROP_CONNECTION:
-		g_value_set_object (value, applet->priv->connection);
-		break;
-	case PROP_PREFS_PATH:
-		g_value_set_string (value, applet->priv->prefs_path);
-		break;
-	case PROP_ORIENT:
-		g_value_set_uint (value, applet->priv->orient);
-		break;
-	case PROP_SIZE:
-		g_value_set_uint (value, applet->priv->size);
-		break;
-	case PROP_BACKGROUND:
-		g_value_set_string (value, applet->priv->background);
-		break;
-	case PROP_FLAGS:
-		g_value_set_uint (value, applet->priv->flags);
-		break;
-	case PROP_SIZE_HINTS: {
-		GVariant **children;
-		GVariant  *variant;
-		gint       i;
+		case PROP_OUT_OF_PROCESS:
+			g_value_set_boolean (value, priv->out_of_process);
+			break;
+		case PROP_ID:
+			g_value_set_string (value, priv->id);
+			break;
+		case PROP_CLOSURE:
+			g_value_set_pointer (value, priv->closure);
+			break;
+		case PROP_CONNECTION:
+			g_value_set_object (value, priv->connection);
+			break;
+		case PROP_PREFS_PATH:
+			g_value_set_string (value, priv->prefs_path);
+			break;
+		case PROP_ORIENT:
+			g_value_set_uint (value, priv->orient);
+			break;
+		case PROP_SIZE:
+			g_value_set_uint (value, priv->size);
+			break;
+		case PROP_BACKGROUND:
+			g_value_set_string (value, priv->background);
+			break;
+		case PROP_FLAGS:
+			g_value_set_uint (value, priv->flags);
+			break;
+		case PROP_SIZE_HINTS: {
+			GVariant **children;
+			GVariant  *variant;
+			gint       i;
 
-		children = g_new (GVariant *, applet->priv->size_hints_len);
-		for (i = 0; i < applet->priv->size_hints_len; i++)
-			children[i] = g_variant_new_int32 (applet->priv->size_hints[i]);
-		variant = g_variant_new_array (G_VARIANT_TYPE_INT32,
-					       children, applet->priv->size_hints_len);
-		g_free (children);
-		g_value_set_pointer (value, variant);
-	}
-		break;
-	case PROP_LOCKED:
-		g_value_set_boolean (value, applet->priv->locked);
-		break;
-	case PROP_LOCKED_DOWN:
-		g_value_set_boolean (value, applet->priv->locked_down);
-		break;
-	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+			children = g_new (GVariant *, priv->size_hints_len);
+			for (i = 0; i < priv->size_hints_len; i++)
+				children[i] = g_variant_new_int32 (priv->size_hints[i]);
+			variant = g_variant_new_array (G_VARIANT_TYPE_INT32,
+			                               children, priv->size_hints_len);
+			g_free (children);
+			g_value_set_pointer (value, variant);
+			break;
+		}
+		case PROP_LOCKED:
+			g_value_set_boolean (value, priv->locked);
+			break;
+		case PROP_LOCKED_DOWN:
+			g_value_set_boolean (value, priv->locked_down);
+			break;
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 	}
 }
 
 static void
 mate_panel_applet_set_property (GObject      *object,
-			   guint         prop_id,
-			   const GValue *value,
-			   GParamSpec   *pspec)
+                                guint         prop_id,
+                                const GValue *value,
+                                GParamSpec   *pspec)
 {
-	MatePanelApplet *applet = MATE_PANEL_APPLET (object);
+	MatePanelApplet        *applet;
+	MatePanelAppletPrivate *priv;
+
+	applet = MATE_PANEL_APPLET (object);
+	priv   = mate_panel_applet_get_instance_private (applet);
 
 	switch (prop_id) {
 	case PROP_OUT_OF_PROCESS:
-		applet->priv->out_of_process = g_value_get_boolean (value);
+		priv->out_of_process = g_value_get_boolean (value);
 		break;
 	case PROP_ID:
-		applet->priv->id = g_value_dup_string (value);
+		priv->id = g_value_dup_string (value);
 		break;
 	case PROP_CLOSURE:
-		applet->priv->closure = g_value_get_pointer (value);
-		g_closure_set_marshal (applet->priv->closure,
+		priv->closure = g_value_get_pointer (value);
+		g_closure_set_marshal (priv->closure,
 				       mate_panel_applet_marshal_BOOLEAN__STRING);
 		break;
 	case PROP_CONNECTION:
-		applet->priv->connection = g_value_dup_object (value);
+		priv->connection = g_value_dup_object (value);
 		break;
 	case PROP_PREFS_PATH:
 		mate_panel_applet_set_preferences_path (applet, g_value_get_string (value));
@@ -1696,13 +1806,15 @@ add_tab_bindings (GtkBindingSet   *binding_set,
 static void
 mate_panel_applet_setup (MatePanelApplet *applet)
 {
-	GValue   value = {0, };
-	GArray  *params;
-	gint     i;
+	MatePanelAppletPrivate *priv;
+	GValue value = {0, };
+	GArray *params;
+	gint i;
 	gboolean ret;
 
-	g_assert (applet->priv->id != NULL &&
-		  applet->priv->closure != NULL);
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	g_assert ((priv->id != NULL) && (priv->closure != NULL));
 
 	params = g_array_sized_new (FALSE, TRUE, sizeof (GValue), 2);
 	value.g_type = 0;
@@ -1712,16 +1824,16 @@ mate_panel_applet_setup (MatePanelApplet *applet)
 
 	value.g_type = 0;
 	g_value_init (&value, G_TYPE_STRING);
-	g_value_set_string (&value, applet->priv->id);
+	g_value_set_string (&value, priv->id);
 	g_array_append_val (params, value);
 
 	value.g_type = 0;
 	g_value_init (&value, G_TYPE_BOOLEAN);
 
-	g_closure_invoke (applet->priv->closure,
-			  &value, params->len,
-			  (GValue *) params->data,
-			  NULL);
+	g_closure_invoke (priv->closure,
+	                  &value, params->len,
+	                  (GValue *) params->data,
+	                  NULL);
 
 	for (i = 0; i < params->len; i++)
 		g_value_unset (&g_array_index (params, GValue, i));
@@ -1737,23 +1849,24 @@ mate_panel_applet_setup (MatePanelApplet *applet)
 	}
 }
 
-void _mate_panel_applet_apply_css(GtkWidget* widget, MatePanelAppletBackgroundType type)
+void _mate_panel_applet_apply_css(GtkWidget                     *widget,
+                                  MatePanelAppletBackgroundType  type)
 {
 	GtkStyleContext* context;
 
 	context = gtk_widget_get_style_context (widget);
 
 	switch (type) {
-	case PANEL_NO_BACKGROUND:
-		gtk_style_context_remove_class (context, "mate-custom-panel-background");
-		break;
-	case PANEL_COLOR_BACKGROUND:
-	case PANEL_PIXMAP_BACKGROUND:
-		gtk_style_context_add_class (context, "mate-custom-panel-background");
-		break;
-	default:
-		g_assert_not_reached ();
-		break;
+		case PANEL_NO_BACKGROUND:
+			gtk_style_context_remove_class (context, "mate-custom-panel-background");
+			break;
+		case PANEL_COLOR_BACKGROUND:
+		case PANEL_PIXMAP_BACKGROUND:
+			gtk_style_context_add_class (context, "mate-custom-panel-background");
+			break;
+		default:
+			g_assert_not_reached ();
+			break;
 	}
 }
 
@@ -1785,70 +1898,75 @@ static void _mate_panel_applet_prepare_css (GtkStyleContext *context)
 static void
 mate_panel_applet_init (MatePanelApplet *applet)
 {
-	applet->priv = mate_panel_applet_get_instance_private (applet);
+	MatePanelAppletPrivate *priv;
 
-	applet->priv->flags  = MATE_PANEL_APPLET_FLAGS_NONE;
-	applet->priv->orient = MATE_PANEL_APPLET_ORIENT_UP;
-	applet->priv->size   = 24;
+	priv = mate_panel_applet_get_instance_private (applet);
 
-	applet->priv->panel_action_group = gtk_action_group_new ("PanelActions");
-	gtk_action_group_set_translation_domain (applet->priv->panel_action_group, GETTEXT_PACKAGE);
-	gtk_action_group_add_actions (applet->priv->panel_action_group,
-				      menu_entries,
-				      G_N_ELEMENTS (menu_entries),
-				      applet);
-	gtk_action_group_add_toggle_actions (applet->priv->panel_action_group,
-					     menu_toggle_entries,
-					     G_N_ELEMENTS (menu_toggle_entries),
-					     applet);
+	priv->flags  = MATE_PANEL_APPLET_FLAGS_NONE;
+	priv->orient = MATE_PANEL_APPLET_ORIENT_UP;
+	priv->size   = 24;
 
-	applet->priv->ui_manager = gtk_ui_manager_new ();
-	gtk_ui_manager_insert_action_group (applet->priv->ui_manager,
-					    applet->priv->panel_action_group, 1);
-	gtk_ui_manager_add_ui_from_string (applet->priv->ui_manager,
-					   panel_menu_ui, -1, NULL);
+	priv->panel_action_group = gtk_action_group_new ("PanelActions");
+	gtk_action_group_set_translation_domain (priv->panel_action_group, GETTEXT_PACKAGE);
+	gtk_action_group_add_actions (priv->panel_action_group,
+	                              menu_entries,
+	                              G_N_ELEMENTS (menu_entries),
+	                              applet);
+	gtk_action_group_add_toggle_actions (priv->panel_action_group,
+	                                     menu_toggle_entries,
+	                                     G_N_ELEMENTS (menu_toggle_entries),
+	                                     applet);
+
+	priv->ui_manager = gtk_ui_manager_new ();
+	gtk_ui_manager_insert_action_group (priv->ui_manager,
+	                                    priv->panel_action_group, 1);
+	gtk_ui_manager_add_ui_from_string (priv->ui_manager,
+	                                   panel_menu_ui, -1, NULL);
 
 	gtk_widget_set_events (GTK_WIDGET (applet),
-			       GDK_BUTTON_PRESS_MASK |
-			       GDK_BUTTON_RELEASE_MASK);
+	                       GDK_BUTTON_PRESS_MASK |
+	                       GDK_BUTTON_RELEASE_MASK);
 }
 
 static GObject *
 mate_panel_applet_constructor (GType                  type,
-                          guint                  n_construct_properties,
-                          GObjectConstructParam *construct_properties)
+                               guint                  n_construct_properties,
+                               GObjectConstructParam *construct_properties)
 {
-	GObject     *object;
+	GObject *object;
 	MatePanelApplet *applet;
+	MatePanelAppletPrivate *priv;
 
 	object = G_OBJECT_CLASS (mate_panel_applet_parent_class)->constructor (type,
-	                                                                  n_construct_properties,
-	                                                                  construct_properties);
+                                                                               n_construct_properties,
+                                                                               construct_properties);
 	applet = MATE_PANEL_APPLET (object);
+	priv   = mate_panel_applet_get_instance_private (applet);
 
-	if (!applet->priv->out_of_process)
+	if (!priv->out_of_process)
 		return object;
 
 #ifdef HAVE_X11
 	if (GDK_IS_X11_DISPLAY (gdk_display_get_default ()))
 	{
-		applet->priv->plug = gtk_plug_new (0);
-
-		GdkScreen *screen = gtk_widget_get_screen (GTK_WIDGET (applet->priv->plug));
-		GdkVisual *visual = gdk_screen_get_rgba_visual (screen);
-		gtk_widget_set_visual (GTK_WIDGET (applet->priv->plug), visual);
 		GtkStyleContext *context;
-		context = gtk_widget_get_style_context (GTK_WIDGET(applet->priv->plug));
-		gtk_style_context_add_class (context,"gnome-panel-menu-bar");
-		gtk_style_context_add_class (context,"mate-panel-menu-bar");
-		gtk_widget_set_name (GTK_WIDGET (applet->priv->plug), "PanelPlug");
+		GtkWidget       *widget;
+
+		priv->plug = gtk_plug_new (0);
+		widget = GTK_WIDGET (priv->plug);
+		gtk_widget_set_visual (widget,
+		                       gdk_screen_get_rgba_visual (gtk_widget_get_screen (widget)));
+		context = gtk_widget_get_style_context (widget);
+		gtk_style_context_add_class (context, "gnome-panel-menu-bar");
+		gtk_style_context_add_class (context, "mate-panel-menu-bar");
+		gtk_widget_set_name (widget, "PanelPlug");
 		_mate_panel_applet_prepare_css (context);
 
-		g_signal_connect_swapped (G_OBJECT (applet->priv->plug), "embedded",
-					  G_CALLBACK (mate_panel_applet_setup),
-					  applet);
+		g_signal_connect_swapped (G_OBJECT (priv->plug), "embedded",
+		                          G_CALLBACK (mate_panel_applet_setup),
+		                          applet);
 
-		gtk_container_add (GTK_CONTAINER (applet->priv->plug), GTK_WIDGET (applet));
+		gtk_container_add (GTK_CONTAINER (priv->plug), GTK_WIDGET (applet));
 	} else
 #endif
 	{ /* not using X11 */
@@ -1859,14 +1977,14 @@ mate_panel_applet_constructor (GType                  type,
 }
 
 static void
-mate_panel_applet_constructed (GObject* object)
+mate_panel_applet_constructed (GObject *object)
 {
-	MatePanelApplet* applet = MATE_PANEL_APPLET(object);
+	MatePanelApplet *applet = MATE_PANEL_APPLET (object);
 
 	/* Rename the class to have compatibility with all GTK2 themes
 	 * https://github.com/perberos/Mate-Desktop-Environment/issues/27
 	 */
-	gtk_widget_set_name(GTK_WIDGET(applet), "PanelApplet");
+	gtk_widget_set_name (GTK_WIDGET (applet), "PanelApplet");
 
 	mate_panel_applet_register_object (applet);
 }
@@ -1876,7 +1994,7 @@ mate_panel_applet_class_init (MatePanelAppletClass *klass)
 {
 	GObjectClass   *gobject_class = (GObjectClass *) klass;
 	GtkWidgetClass *widget_class = (GtkWidgetClass *) klass;
-	GtkBindingSet *binding_set;
+	GtkBindingSet  *binding_set;
 
 	gobject_class->get_property = mate_panel_applet_get_property;
 	gobject_class->set_property = mate_panel_applet_set_property;
@@ -2058,21 +2176,20 @@ GtkWidget* mate_panel_applet_new(void)
 
 static GdkEvent *
 button_press_event_new (MatePanelApplet *applet,
-                        guint        button,
-                        guint        time)
+                        guint            button,
+                        guint            time)
 {
   GdkDisplay *display;
-  GdkSeat *seat;
-  GdkDevice *device;
-  GdkEvent *event;
+  GdkSeat    *seat;
+  GdkDevice  *device;
+  GdkEvent   *event;
 
   display = gdk_display_get_default ();
-  seat = gdk_display_get_default_seat (display);
-  device = gdk_seat_get_pointer (seat);
+  seat    = gdk_display_get_default_seat (display);
+  device  = gdk_seat_get_pointer (seat);
 
   event = gdk_event_new (GDK_BUTTON_PRESS);
-
-  event->button.time = time;
+  event->button.time   = time;
   event->button.button = button;
 
   gdk_event_set_device (event, device);
@@ -2115,35 +2232,35 @@ get_property_cb (GDBusConnection *connection,
 		 GError         **error,
 		 gpointer         user_data)
 {
-	MatePanelApplet *applet = MATE_PANEL_APPLET (user_data);
-	GVariant    *retval = NULL;
+	MatePanelAppletPrivate *priv;
+	GVariant *retval = NULL;
+
+	priv = mate_panel_applet_get_instance_private (MATE_PANEL_APPLET (user_data));
 
 	if (g_strcmp0 (property_name, "PrefsPath") == 0) {
-		retval = g_variant_new_string (applet->priv->prefs_path ?
-					       applet->priv->prefs_path : "");
+		retval = g_variant_new_string (priv->prefs_path ? priv->prefs_path : "");
 	} else if (g_strcmp0 (property_name, "Orient") == 0) {
-		retval = g_variant_new_uint32 (applet->priv->orient);
+		retval = g_variant_new_uint32 (priv->orient);
 	} else if (g_strcmp0 (property_name, "Size") == 0) {
-		retval = g_variant_new_uint32 (applet->priv->size);
+		retval = g_variant_new_uint32 (priv->size);
 	} else if (g_strcmp0 (property_name, "Background") == 0) {
-		retval = g_variant_new_string (applet->priv->background ?
-					       applet->priv->background : "");
+		retval = g_variant_new_string (priv->background ? priv->background : "");
 	} else if (g_strcmp0 (property_name, "Flags") == 0) {
-		retval = g_variant_new_uint32 (applet->priv->flags);
+		retval = g_variant_new_uint32 (priv->flags);
 	} else if (g_strcmp0 (property_name, "SizeHints") == 0) {
 		GVariant **children;
 		gint       i;
 
-		children = g_new (GVariant *, applet->priv->size_hints_len);
-		for (i = 0; i < applet->priv->size_hints_len; i++)
-			children[i] = g_variant_new_int32 (applet->priv->size_hints[i]);
+		children = g_new (GVariant *, priv->size_hints_len);
+		for (i = 0; i < priv->size_hints_len; i++)
+			children[i] = g_variant_new_int32 (priv->size_hints[i]);
 		retval = g_variant_new_array (G_VARIANT_TYPE_INT32,
-					      children, applet->priv->size_hints_len);
+		                              children, priv->size_hints_len);
 		g_free (children);
 	} else if (g_strcmp0 (property_name, "Locked") == 0) {
-		retval = g_variant_new_boolean (applet->priv->locked);
+		retval = g_variant_new_boolean (priv->locked);
 	} else if (g_strcmp0 (property_name, "LockedDown") == 0) {
-		retval = g_variant_new_boolean (applet->priv->locked_down);
+		retval = g_variant_new_boolean (priv->locked_down);
 	}
 
 	return retval;
@@ -2219,22 +2336,24 @@ static GDBusNodeInfo *introspection_data = NULL;
 static void
 mate_panel_applet_register_object (MatePanelApplet *applet)
 {
-	GError     *error = NULL;
+	MatePanelAppletPrivate *priv;
+	GError *error = NULL;
 	static gint id = 0;
 
 	if (!introspection_data)
 		introspection_data = g_dbus_node_info_new_for_xml (introspection_xml, NULL);
 
-	applet->priv->object_path = g_strdup_printf (MATE_PANEL_APPLET_OBJECT_PATH, applet->priv->id, id++);
-	applet->priv->object_id =
-		g_dbus_connection_register_object (applet->priv->connection,
-						   applet->priv->object_path,
-						   introspection_data->interfaces[0],
-						   &interface_vtable,
-						   applet, NULL,
-						   &error);
-	if (!applet->priv->object_id) {
-		g_printerr ("Failed to register object %s: %s\n", applet->priv->object_path, error->message);
+	priv = mate_panel_applet_get_instance_private (applet);
+	priv->object_path = g_strdup_printf (MATE_PANEL_APPLET_OBJECT_PATH, priv->id, id++);
+	priv->object_id =
+		g_dbus_connection_register_object (priv->connection,
+		                                   priv->object_path,
+		                                   introspection_data->interfaces[0],
+		                                   &interface_vtable,
+		                                   applet, NULL,
+		                                   &error);
+	if (!priv->object_id) {
+		g_printerr ("Failed to register object %s: %s\n", priv->object_path, error->message);
 		g_error_free (error);
 	}
 }
@@ -2254,7 +2373,8 @@ static void mate_panel_applet_factory_main_finalized(gpointer data, GObject* obj
 static int (*_x_error_func) (Display *, XErrorEvent *);
 
 static int
-_x_error_handler (Display *display, XErrorEvent *error)
+_x_error_handler (Display     *display,
+                  XErrorEvent *error)
 {
 	if (!error->error_code)
 		return 0;
@@ -2302,11 +2422,11 @@ _mate_panel_applet_setup_x_error_handler (void)
 #endif
 
 static int
-_mate_panel_applet_factory_main_internal (const gchar               *factory_id,
-				     gboolean                   out_process,
-				     GType                      applet_type,
-				     MatePanelAppletFactoryCallback callback,
-					 gpointer                   user_data)
+_mate_panel_applet_factory_main_internal (const gchar                    *factory_id,
+                                          gboolean                        out_process,
+                                          GType                           applet_type,
+                                          MatePanelAppletFactoryCallback  callback,
+                                          gpointer                        user_data)
 
 {
 	MatePanelAppletFactory* factory;
@@ -2363,14 +2483,14 @@ _mate_panel_applet_factory_main_internal (const gchar               *factory_id,
  * Returns: 0 on success, 1 if there is an error.
  */
 int
-mate_panel_applet_factory_main (const gchar               *factory_id,
-               gboolean                   out_process, /*Dummy to support applets w issues with this */
-			   GType                      applet_type,
-			   MatePanelAppletFactoryCallback callback,
-			   gpointer                   user_data)
+mate_panel_applet_factory_main (const gchar                    *factory_id,
+                                gboolean                        out_process, /*Dummy to support applets w issues with this */
+                                GType                           applet_type,
+                                MatePanelAppletFactoryCallback  callback,
+                                gpointer                        user_data)
 {
 	return _mate_panel_applet_factory_main_internal (factory_id, TRUE, applet_type,
-						    callback, user_data);
+                                                         callback, user_data);
 }
 
 /**
@@ -2383,13 +2503,13 @@ mate_panel_applet_factory_main (const gchar               *factory_id,
  * Returns: 0 on success, 1 if there is an error.
  */
 int
-mate_panel_applet_factory_setup_in_process (const gchar               *factory_id,
-				       GType                      applet_type,
-				       MatePanelAppletFactoryCallback callback,
-				       gpointer                   user_data)
+mate_panel_applet_factory_setup_in_process (const gchar                    *factory_id,
+                                            GType                           applet_type,
+                                            MatePanelAppletFactoryCallback  callback,
+                                            gpointer                        user_data)
 {
 	return _mate_panel_applet_factory_main_internal (factory_id, FALSE, applet_type,
-						    callback, user_data);
+                                                         callback, user_data);
 }
 
 /**
@@ -2406,23 +2526,27 @@ mate_panel_applet_factory_setup_in_process (const gchar               *factory_i
 
 void
 mate_panel_applet_set_background_widget (MatePanelApplet *applet,
-				    GtkWidget   *widget)
+                                         GtkWidget       *widget)
 {
 }
 
 guint32
 mate_panel_applet_get_xid (MatePanelApplet *applet,
-		      GdkScreen   *screen)
+                           GdkScreen       *screen)
 {
+	MatePanelAppletPrivate *priv;
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
 	/* out_of_process should only be true on X11, so an extra runtime Wayland check is not needed */
-	if (applet->priv->out_of_process == FALSE)
+	if (priv->out_of_process == FALSE)
 		return 0;
 
 #ifdef HAVE_X11
-	gtk_window_set_screen (GTK_WINDOW (applet->priv->plug), screen);
-	gtk_widget_show (applet->priv->plug);
+	gtk_window_set_screen (GTK_WINDOW (priv->plug), screen);
+	gtk_widget_show (priv->plug);
 
-	return gtk_plug_get_id (GTK_PLUG (applet->priv->plug));
+	return gtk_plug_get_id (GTK_PLUG (priv->plug));
 #else
 	return 0;
 #endif
@@ -2431,12 +2555,16 @@ mate_panel_applet_get_xid (MatePanelApplet *applet,
 const gchar *
 mate_panel_applet_get_object_path (MatePanelApplet *applet)
 {
-	return applet->priv->object_path;
+	MatePanelAppletPrivate *priv;
+
+	priv = mate_panel_applet_get_instance_private (applet);
+
+	return priv->object_path;
 }
 
 G_MODULE_EXPORT GtkWidget *
 mate_panel_applet_get_applet_widget (const gchar *factory_id,
-                                guint        uid)
+                                     guint        uid)
 {
 	GtkWidget *widget;
 
